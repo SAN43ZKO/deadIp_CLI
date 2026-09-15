@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import httpx
@@ -80,7 +81,7 @@ def main(
     err_console = Console(stderr=True, no_color=no_color)
     ui = err_console if json_out else console
 
-    ui.rule(f"[bold]deadIp[/bold] v{__version__}")
+    ui.rule(f"[bold]deadip[/bold] v{__version__}")
 
     # 0. Резолвинг
     resolved = resolve_target(target, timeout=timeout)
@@ -140,7 +141,11 @@ def main(
 
     # ------- Вывод -------
     if json_out:
-        console.print(build_json(target, resolved, checks, verdict), highlight=False)
+        # Ключевой момент: JSON пишем в stdout напрямую, без rich.
+        # Rich умеет переносить строки и экранировать символы — это ломает JSON.
+        sys.stdout.write(build_json(target, resolved, checks, verdict))
+        sys.stdout.write("\n")
+        sys.stdout.flush()
     else:
         _print_table(resolved, checks)
         style = _VERDICT_STYLE.get(verdict["verdict"], "bold")

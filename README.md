@@ -1,4 +1,4 @@
-# deadIp
+# deadip_cli
 
 **Диагностика блокировки IP-адреса VPS из Российской Федерации.**
 
@@ -6,7 +6,7 @@
 РКН/ТСПУ с доказательной базой для обращения в техподдержку провайдера.
 
 ```
-$ deadIp --target 195.226.194.55
+$ deadip --target 195.226.194.55
 
   Слой   Проверка           Результат   Детали
  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -57,7 +57,7 @@ ICMP, но сбрасывать TCP-сессии или рукопожатие T
 сместился со стороны РКН на сторону **провайдера пользователя**: DPI распознаёт
 VPN-трафик и дропает его молча, из-за чего трасса обрывается на 2-м хопе.
 
-`deadIp` проводит многослойную проверку, собирает доказательства и формирует
+`deadip` проводит многослойную проверку, собирает доказательства и формирует
 готовый отчёт, который техподдержка принимает как основание для замены IP.
 
 ---
@@ -102,7 +102,7 @@ VPN-трафик и дропает его молча, из-за чего тра�
 ### Linux / macOS — одной командой
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/your-user/deadIp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/your-user/deadip/main/install.sh | bash
 ```
 
 Скрипт:
@@ -116,13 +116,13 @@ curl -fsSL https://raw.githubusercontent.com/your-user/deadIp/main/install.sh | 
 ### Вручную
 
 Скачайте бинарник для своей платформы со
-[страницы Releases](https://github.com/your-user/deadIp/releases) и положите
+[страницы Releases](https://github.com/your-user/deadip/releases) и положите
 в `~/.local/bin`:
 
 ```bash
-chmod +x deadIp-linux-x86_64
-mv deadIp-linux-x86_64 ~/.local/bin/deadIp
-deadIp --version
+chmod +x deadip-linux-x86_64
+mv deadip-linux-x86_64 ~/.local/bin/deadip
+deadip --version
 ```
 
 
@@ -134,12 +134,12 @@ deadIp --version
 ```powershell
 wsl --install -d Ubuntu
 # внутри WSL
-curl -fsSL https://raw.githubusercontent.com/your-user/deadIp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/your-user/deadip/main/install.sh | bash
 ```
 
 ### Системные зависимости
 
-`deadIp` использует системные `ping`, `mtr` (или `traceroute`) через
+`deadip` использует системные `ping`, `mtr` (или `traceroute`) через
 `subprocess` — они не входят в бинарник. Установите их отдельно:
 
 ```bash
@@ -185,16 +185,16 @@ getcap $(readlink -f $(which mtr))
 
 ```bash
 # Базовая проверка
-deadIp --target 203.0.113.45
+deadip --target 203.0.113.45
 
 # С указанием портов и сохранением отчёта
-deadIp --target 203.0.113.45 --ports 22,80,443,8443 --output /tmp/report.md
+deadip --target 203.0.113.45 --ports 22,80,443,8443 --output /tmp/report.md
 
 # С шаблоном обращения в техподдержку
-deadIp --target 203.0.113.45 --support-template --output /tmp/r.md
+deadip --target 203.0.113.45 --support-template --output /tmp/r.md
 
 # JSON для интеграции с мониторингом
-deadIp --target 203.0.113.45 --json
+deadip --target 203.0.113.45 --json
 ```
 
 ---
@@ -209,7 +209,7 @@ deadIp --target 203.0.113.45 --json
 | `--ports` | `22,80,443` | Список TCP-портов через запятую |
 | `--timeout` | `5.0` | Таймаут на этап, секунды |
 | `--output`, `-o` | — | Путь для Markdown-отчёта |
-| `--support-template` | выкл | Сгенерировать шаблон обращения в техподдержку (сохраняет в `<output>.support.md` или `deadIp-<ip>.support.md`) |
+| `--support-template` | выкл | Сгенерировать шаблон обращения в техподдержку (сохраняет в `<output>.support.md` или `deadip-<ip>.support.md`) |
 | `--json` | выкл | Вывод результатов в JSON (в stdout) |
 | `--no-control` | выкл | Пропустить контрольную группу (слой 5) |
 | `--skip-external` | выкл | Пропустить Globalping (слой 6) |
@@ -222,21 +222,21 @@ deadIp --target 203.0.113.45 --json
 
 ```bash
 # Проверить домен с SNI-резолвом через DoH
-deadIp --target example.com
+deadip --target example.com
 
 # Свой набор портов + долгий таймаут
-deadIp --target 203.0.113.45 --ports 22,80,443,8443,9001 --timeout 10
+deadip --target 203.0.113.45 --ports 22,80,443,8443,9001 --timeout 10
 
 # Только быстрые слои (без внешних API)
-deadIp --target 203.0.113.45 --no-control --skip-external
+deadip --target 203.0.113.45 --no-control --skip-external
 
 # Полный отчёт + шаблон для тикета
-deadIp --target 203.0.113.45 \
+deadip --target 203.0.113.45 \
     --output /tmp/report.md \
     --support-template
 
 # Для cron/CI — молча, в JSON
-deadIp --target 203.0.113.45 --json --no-color > diag.json
+deadip --target 203.0.113.45 --json --no-color > diag.json
 ```
 
 ### Что печатается в консоль
@@ -251,7 +251,7 @@ deadIp --target 203.0.113.45 --json --no-color > diag.json
 - **Markdown-отчёт** (`--output`) — таблица, вердикт, детали трассировки.
 - **Шаблон обращения** (`--support-template`) — готовый текст для тикета
   на русском и английском с подставленными данными.
-- **Сырой лог** — автоматически в `~/.config/deadIp/logs/YYYYMMDD-HHMMSS.json`.
+- **Сырой лог** — автоматически в `~/.config/deadip/logs/YYYYMMDD-HHMMSS.json`.
   Используется для сравнения с предыдущим запуском.
 
 ---
@@ -306,7 +306,7 @@ deadIp --target 203.0.113.45 --json --no-color > diag.json
 Шаблон сохраняется рядом с отчётом:
 
 ```bash
-deadIp --target 203.0.113.45 --output /tmp/r.md --support-template
+deadip --target 203.0.113.45 --output /tmp/r.md --support-template
 # → /tmp/r.md
 # → /tmp/r.support.md
 ```
@@ -314,8 +314,8 @@ deadIp --target 203.0.113.45 --output /tmp/r.md --support-template
 Или без `--output` — в текущий каталог:
 
 ```bash
-deadIp --target 203.0.113.45 --support-template
-# → ./deadIp-203.0.113.45.support.md
+deadip --target 203.0.113.45 --support-template
+# → ./deadip-203.0.113.45.support.md
 ```
 
 ---
@@ -360,7 +360,7 @@ deadIp --target 203.0.113.45 --support-template
 
 TCP-traceroute требует `cap_net_raw`. Три варианта:
 
-1. Запустить через `sudo -E deadIp ...`.
+1. Запустить через `sudo -E deadip ...`.
 2. Выдать capabilities (см. раздел [Установка](#установка)).
 3. Ничего не делать — утилита автоматически откатится на ICMP-режим,
    AS доберутся через Cymru.
@@ -389,8 +389,8 @@ TCP-traceroute требует `cap_net_raw`. Три варианта:
 ### Установка dev-окружения
 
 ```bash
-git clone https://github.com/your-user/deadIp.git
-cd deadIp
+git clone https://github.com/your-user/deadip.git
+cd deadip
 python3.10 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -399,7 +399,7 @@ pip install -e .
 Editable-установка (`-e`) позволяет править код и сразу запускать:
 
 ```bash
-deadIp --target 1.1.1.1 --skip-external
+deadip --target 1.1.1.1 --skip-external
 # или
 python -m rkn_diag.cli --target 1.1.1.1 --skip-external
 ```
@@ -408,7 +408,7 @@ python -m rkn_diag.cli --target 1.1.1.1 --skip-external
 
 ```bash
 pip install watchfiles
-watchfiles "deadIp --target 1.1.1.1 --skip-external"
+watchfiles "deadip --target 1.1.1.1 --skip-external"
 ```
 
 ### Логи во время разработки
@@ -416,7 +416,7 @@ watchfiles "deadIp --target 1.1.1.1 --skip-external"
 Чтобы не мусорить в реальном `~/.config`, переопределите XDG-каталог:
 
 ```bash
-XDG_CONFIG_HOME=/tmp/rkn-dev deadIp --target 1.1.1.1
+XDG_CONFIG_HOME=/tmp/rkn-dev deadip --target 1.1.1.1
 ```
 
 ### Тесты и линтеры
@@ -434,14 +434,14 @@ Linux (через Docker, чтобы обеспечить совместимос
 
 ```bash
 ./scripts/build-linux.sh
-# → release/deadIp-linux-x86_64
+# → release/deadip-linux-x86_64
 ```
 
 macOS:
 
 ```bash
 ./scripts/build-macos.sh
-# → release/deadIp-darwin-arm64 (или x86_64)
+# → release/deadip-darwin-arm64 (или x86_64)
 ```
 
 ### Релиз
@@ -459,10 +459,10 @@ Apple Silicon), создаст Release и приложит `install.sh` + `SHA25
 ## Архитектура
 
 ```
-deadIp/
+deadip/
 ├── pyproject.toml
 ├── Dockerfile.build              # окружение для сборки Linux-бинарника
-├── deadIp.spec                 # конфиг PyInstaller
+├── deadip.spec                 # конфиг PyInstaller
 ├── install.sh                    # one-liner installer
 ├── scripts/
 │   ├── build-linux.sh
