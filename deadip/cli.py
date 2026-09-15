@@ -52,8 +52,9 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.callback()
-def _root(
+
+@app.command()
+def main(
     version: bool = typer.Option(
         False,
         "--version",
@@ -62,12 +63,6 @@ def _root(
         callback=_version_callback,
         is_eager=True,
     ),
-) -> None:
-    """Глобальные опции deadip."""
-
-
-@app.command()
-def main(
     target: str = typer.Option(..., "--target", "-t", help="IP или домен"),
     ports: str = typer.Option("22,80,443", "--ports", help="TCP-порты через запятую"),
     timeout: float = typer.Option(5.0, "--timeout", help="Таймаут на этап, сек"),
@@ -83,40 +78,43 @@ def main(
     if no_color:
         console.no_color = True
 
-    console.rule(f"[bold]deadIp[/bold] v{__version__}")
+    err_console = Console(stderr=True, no_color=no_color)
+    ui = err_console if json_out else console
+
+    ui.rule(f"[bold]deadIp[/bold] v{__version__}")
 
     # 0. Резолвинг
     resolved = resolve_target(target, timeout=timeout)
     if not resolved.get("ip"):
-        console.print(f"[red]Не удалось разрешить {target}[/red]")
+        ui.print(f"[red]Не удалось разрешить {target}[/red]")
         raise typer.Exit(code=2)
     ip = resolved["ip"]
-    console.print(f"Target: [cyan]{target}[/cyan] → [bold]{ip}[/bold]")
+    ui.print(f"Target: [cyan]{target}[/cyan] → [bold]{ip}[/bold]")
 
     checks: dict = {}
 
     # 1. ICMP
-    with console.status("Слой 1: ICMP ping..."):
+    with ui.status("Слой 1: ICMP ping..."):
         checks["icmp"] = icmp.ping(ip, count=10, timeout=min(timeout, 2.0))
 
     # 2. TCP
     port_list = [int(p.strip()) for p in ports.split(",") if p.strip()]
     checks["tcp"] = []
     for p in port_list:
-        with console.status(f"Слой 2: TCP {p}..."):
+        with ui.status(f"Слой 2: TCP {p}..."):
             checks["tcp"].append(tcp.tcp_check(ip, p, timeout=timeout))
 
     # 3. TLS
-    with console.status("Слой 3: TLS handshake..."):
+    with ui.status("Слой 3: TLS handshake..."):
         checks["tls"] = tls.tls_check(ip, port=443, sni=resolved.get("sni"), timeout=timeout)
 
     # 4. MTR
-    with console.status("Слой 4: MTR (TCP 443)..."):
+    with ui.status("Слой 4: MTR (TCP 443)..."):
         checks["traceroute"] = traceroute.traceroute_tcp(ip, port=443, timeout=min(timeout, 3.0))
 
     # 5. Контроль
     if not no_control:
-        with console.status("Слой 5: контрольная группа (ya.ru)..."):
+        with ui.status("Слой 5: контрольная группа (ya.ru)..."):
             control_ip = resolve_target("ya.ru", timeout=timeout).get("ip") or "ya.ru"
             c_ping = icmp.ping(control_ip, count=5, timeout=min(timeout, 2.0))
             c_tcp = tcp.tcp_check(control_ip, 443, timeout=timeout)
@@ -130,7 +128,7 @@ def main(
 
     # 6. External
     if not skip_external:
-        with console.status("Слой 6: Globalping..."):
+        with ui.status("Слой 6: Globalping..."):
             checks["external"] = external.globalping_compare(ip, timeout=timeout * 8)
 
     # Плагины
@@ -166,7 +164,7 @@ def main(
 
     if output:
         output.write_text(md, encoding="utf-8")
-        console.print(f"[green]Отчёт сохранён:[/green] {output}")
+        ui.print(f"[green]Отчёт сохранён:[/green] {output}")
 
     # ------- Шаблон поддержки -------
     if support_template:
@@ -180,13 +178,13 @@ def main(
         if output:
             side = output.with_suffix(".support.md")
             side.write_text(tpl, encoding="utf-8")
-            console.print(f"[green]Шаблон сохранён:[/green] {side}")
+            ui.print(f"[green]Шаблон сохранён:[/green] {side}")
         else:
             # --support-template без --output: сохраняем в текущий каталог,
             # в консоль ничего не печатаем.
             side = Path(f"rkn-diag-{ip.replace(':', '_')}.support.md")
             side.write_text(tpl, encoding="utf-8")
-            console.print(f"[green]Шаблон сохранён:[/green] {side}")
+            ui.print(f"[green]Шаблон сохранён:[/green] {side}")
 
     # ------- Сырой лог + сравнение -------
     prev = previous_for(target)
