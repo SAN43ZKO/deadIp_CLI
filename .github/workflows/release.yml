@@ -26,14 +26,18 @@ jobs:
 
       - name: Build binary in Ubuntu 20.04 container
         run: |
-          docker build -f Dockerfile.build -t deadip-builder .
-          docker run --rm \
-              -v "$PWD":/src -w /src \
-              deadip-builder \
-              bash -lc "pip install -e . && pyinstaller deadip.spec --clean --noconfirm"
-          mkdir -p release
-          mv dist/deadip release/deadip-linux-x86_64
-          chmod +x release/deadip-linux-x86_64
+            docker build -f Dockerfile.build -t deadip-builder .
+            rm -rf dist release
+            mkdir -p release
+            docker run --rm \
+                --user "$(id -u):$(id -g)" \
+                -e HOME=/tmp \
+                -e PIP_NO_CACHE_DIR=1 \
+                -v "$PWD":/src -w /src \
+                deadip-builder \
+                bash -lc "pip install -e . && pyinstaller deadip.spec --clean --noconfirm"
+            mv dist/deadip release/deadip-linux-x86_64
+            chmod +x release/deadip-linux-x86_64
 
       - name: Smoke test
         run: |
