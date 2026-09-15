@@ -45,6 +45,7 @@ def _mask(text: str, my_ip: str | None) -> str:
         text = text.replace(my_ip, "xxx.xxx.xxx.xxx")
     return text
 
+
 def _version_callback(value: bool) -> None:
     if value:
         console.print(f"[bold cyan]deadip[/bold cyan] [dim]{__version__}[/dim]")
@@ -63,6 +64,7 @@ def _root(
     ),
 ) -> None:
     """Глобальные опции deadip."""
+
 
 @app.command()
 def main(
