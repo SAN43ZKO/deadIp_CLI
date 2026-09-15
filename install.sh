@@ -2,7 +2,7 @@
 # install.sh — установщик deadip (standalone binary)
 set -euo pipefail
 
-REPO="SAN43ZKO/deadip"
+REPO="SAN43ZKO/deadIp_CLI"
 BIN_NAME="deadip"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${VERSION:-latest}"
