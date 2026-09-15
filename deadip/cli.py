@@ -52,7 +52,6 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-
 @app.command()
 def main(
     version: bool = typer.Option(
