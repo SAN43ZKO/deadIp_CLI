@@ -45,16 +45,16 @@ jobs:
           pip install ruff mypy
 
       - name: Ruff (lint)
-        run: ruff check rkn_diag
+        run: ruff check deadip
 
       - name: Ruff (format check)
-        run: ruff format --check rkn_diag
+        run: ruff format --check deadip
 
       # mypy допускаем как non-blocking на первом этапе:
       # включишь continue-on-error: false, когда разберёшь типы.
       - name: Mypy
         continue-on-error: true
-        run: mypy rkn_diag || true
+        run: mypy deadip || true
 
   # =============================================================
   # 2. Тесты — матрица Python 3.10 / 3.11 / 3.12
@@ -94,7 +94,7 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run tests
-        run: pytest -q --cov=rkn_diag --cov-report=term-missing
+        run: pytest -q --cov=deadip --cov-report=term-missing
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-22.04' && matrix.python == '3.11'
