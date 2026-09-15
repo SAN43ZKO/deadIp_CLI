@@ -26,24 +26,24 @@ jobs:
 
       - name: Build binary in Ubuntu 20.04 container
         run: |
-          docker build -f Dockerfile.build -t deadIp-builder .
+          docker build -f Dockerfile.build -t deadip-builder .
           docker run --rm \
               -v "$PWD":/src -w /src \
-              deadIp-builder \
-              bash -lc "pip install -e . && pyinstaller deadIp.spec --clean --noconfirm"
+              deadip-builder \
+              bash -lc "pip install -e . && pyinstaller deadip.spec --clean --noconfirm"
           mkdir -p release
-          mv dist/deadIp release/deadIp-linux-x86_64
-          chmod +x release/deadIp-linux-x86_64
+          mv dist/deadip release/deadip-linux-x86_64
+          chmod +x release/deadip-linux-x86_64
 
       - name: Smoke test
         run: |
-          ./release/deadIp-linux-x86_64 --version
-          ./release/deadIp-linux-x86_64 --help
+          ./release/deadip-linux-x86_64 --version
+          ./release/deadip-linux-x86_64 --help
 
       - uses: actions/upload-artifact@v4
         with:
-          name: deadIp-linux-x86_64
-          path: release/deadIp-linux-x86_64
+          name: deadip-linux-x86_64
+          path: release/deadip-linux-x86_64
           if-no-files-found: error
 
   # ==================================================
@@ -63,18 +63,18 @@ jobs:
           pip install --upgrade pip
           pip install -e .
           pip install pyinstaller
-          pyinstaller deadIp.spec --clean --noconfirm
+          pyinstaller deadip.spec --clean --noconfirm
           mkdir -p release
-          mv dist/deadIp release/deadIp-linux-arm64
-          chmod +x release/deadIp-linux-arm64
+          mv dist/deadip release/deadip-linux-arm64
+          chmod +x release/deadip-linux-arm64
 
       - name: Smoke test
-        run: ./release/deadIp-linux-arm64 --version
+        run: ./release/deadip-linux-arm64 --version
 
       - uses: actions/upload-artifact@v4
         with:
-          name: deadIp-linux-arm64
-          path: release/deadIp-linux-arm64
+          name: deadip-linux-arm64
+          path: release/deadip-linux-arm64
           if-no-files-found: error
 
   # ==================================================
@@ -107,22 +107,22 @@ jobs:
 
       - name: Build
         run: |
-          pyinstaller deadIp.spec --clean --noconfirm
+          pyinstaller deadip.spec --clean --noconfirm
           mkdir -p release
-          mv dist/deadIp release/deadIp-darwin-${{ matrix.arch }}
-          chmod +x release/deadIp-darwin-${{ matrix.arch }}
+          mv dist/deadip release/deadip-darwin-${{ matrix.arch }}
+          chmod +x release/deadip-darwin-${{ matrix.arch }}
 
       - name: Ad-hoc codesign
         run: |
-          codesign --force --deep --sign - release/deadIp-darwin-${{ matrix.arch }}
+          codesign --force --deep --sign - release/deadip-darwin-${{ matrix.arch }}
 
       - name: Smoke test
-        run: ./release/deadIp-darwin-${{ matrix.arch }} --version
+        run: ./release/deadip-darwin-${{ matrix.arch }} --version
 
       - uses: actions/upload-artifact@v4
         with:
-          name: deadIp-darwin-${{ matrix.arch }}
-          path: release/deadIp-darwin-${{ matrix.arch }}
+          name: deadip-darwin-${{ matrix.arch }}
+          path: release/deadip-darwin-${{ matrix.arch }}
           if-no-files-found: error
 
   # ==================================================
@@ -146,7 +146,7 @@ jobs:
       - name: Compute checksums
         working-directory: release
         run: |
-          sha256sum deadIp-* > SHA256SUMS
+          sha256sum deadip-* > SHA256SUMS
           ls -lh
 
       - name: Determine tag
@@ -165,9 +165,9 @@ jobs:
           name: ${{ steps.tag.outputs.tag }}
           generate_release_notes: true
           files: |
-            release/deadIp-linux-x86_64
-            release/deadIp-linux-arm64
-            release/deadIp-darwin-x86_64
-            release/deadIp-darwin-arm64
+            release/deadip-linux-x86_64
+            release/deadip-linux-arm64
+            release/deadip-darwin-x86_64
+            release/deadip-darwin-arm64
             release/SHA256SUMS
             install.sh
