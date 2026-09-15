@@ -116,7 +116,7 @@ curl -fsSL https://raw.githubusercontent.com/SAN43ZKO/deadIp_CLI/master/install.
 ### Вручную
 
 Скачайте бинарник для своей платформы со
-[страницы Releases](https://github.com/your-user/deadip/releases) и положите
+[страницы Releases](https://github.com/SAN43ZKO/deadIp_CLI/releases) и положите
 в `~/.local/bin`:
 
 ```bash
@@ -134,7 +134,7 @@ deadip --version
 ```powershell
 wsl --install -d Ubuntu
 # внутри WSL
-curl -fsSL https://raw.githubusercontent.com/your-user/deadip/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SAN43ZKO/deadIp_CLI/master/install.sh | bash
 ```
 
 ### Системные зависимости
@@ -389,7 +389,7 @@ TCP-traceroute требует `cap_net_raw`. Три варианта:
 ### Установка dev-окружения
 
 ```bash
-git clone https://github.com/your-user/deadip.git
+git clone https://github.com/SAN43ZKO/deadIp_CLI.git
 cd deadip
 python3.10 -m venv .venv
 source .venv/bin/activate
