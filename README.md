@@ -102,7 +102,7 @@ VPN-трафик и дропает его молча, из-за чего тра�
 ### Linux / macOS — одной командой
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SAN43ZKO/deadIp_CLI/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SAN43ZKO/deadIp_CLI/master/install.sh | bash
 ```
 
 Скрипт:
