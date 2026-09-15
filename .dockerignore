@@ -1,12 +1,10 @@
-__pycache__/
-*.py[cod]
+.git/
 .venv/
 venv/
 dist/
 build/
 release/
-scripts/
-*.spec.bak
+__pycache__/
+*.py[cod]
 .pytest_cache/
 .ruff_cache/
-.mypy_cache/

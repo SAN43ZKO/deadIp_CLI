@@ -1,0 +1,35 @@
+# Dockerfile.build — окружение для сборки standalone-бинарника deadip.
+#
+# База: python:3.10-slim-bullseye (Debian 11, glibc 2.31).
+# Security-репозиторий bullseye отключён: с 2025 года он отдаёт 404 на
+# перепакованные пакеты. Для одноразового билд-контейнера это безопасно —
+# нам нужны только binutils и ca-certificates из основного репозитория.
+FROM python:3.10-slim-bullseye
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
+
+# Отключаем сломанный bullseye-security
+RUN sed -i '/bullseye-security/d' /etc/apt/sources.list \
+    && cat /etc/apt/sources.list
+
+# binutils — обязателен для PyInstaller (objdump)
+# ca-certificates — для HTTPS (DoH, Globalping)
+# patchelf — нужен PyInstaller'у; в bullseye он в main, но на всякий случай
+#            поставим pip-вариант ниже
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# patchelf — из PyPI, готовое колесо. PyInstaller иногда его ищет.
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install pyinstaller patchelf
+
+CMD ["bash", "-lc", "pip install -e . && pyinstaller deadip.spec --clean --noconfirm"]

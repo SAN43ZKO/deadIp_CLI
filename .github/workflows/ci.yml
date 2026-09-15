@@ -1,0 +1,251 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    # не запускать на тегах — это делает release.yml
+    tags-ignore: ['**']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Отменяем предыдущий запуск, если прилетел новый push в тот же PR/ветку
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Минимально необходимые права; токен не нужен, только чтение
+permissions:
+  contents: read
+
+env:
+  # Отключает warning про «root user» в pip и кэш байткода
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+
+  # =============================================================
+  # 1. Линт и типы — быстрый, чтобы упасть раньше тяжёлых job'ов
+  # =============================================================
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install linters
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+
+      - name: Ruff (lint)
+        run: ruff check rkn_diag
+
+      - name: Ruff (format check)
+        run: ruff format --check rkn_diag
+
+      # mypy допускаем как non-blocking на первом этапе:
+      # включишь continue-on-error: false, когда разберёшь типы.
+      - name: Mypy
+        continue-on-error: true
+        run: mypy rkn_diag || true
+
+  # =============================================================
+  # 2. Тесты — матрица Python 3.10 / 3.11 / 3.12
+  # =============================================================
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        python: ["3.10", "3.11", "3.12"]
+        include:
+          # macOS — только один Python, для проверки кроссплатформенности
+          - os: macos-14
+            python: "3.11"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install system tools
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y iputils-ping mtr-tiny traceroute
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install mtr || true
+          fi
+
+      - name: Install package + test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        run: pytest -q --cov=rkn_diag --cov-report=term-missing
+
+      - name: Upload coverage
+        if: always() && matrix.os == 'ubuntu-22.04' && matrix.python == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .coverage
+          if-no-files-found: ignore
+
+  # =============================================================
+  # 3. Smoke-тест CLI — что команда вообще запускается и отвечает
+  # =============================================================
+  smoke:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iputils-ping mtr-tiny traceroute whois
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: --version works
+        run: deadip --version
+
+      - name: --help works
+        run: deadip --help
+
+      - name: Run against a known-stable target (basic sanity)
+        # 1.1.1.1 — Cloudflare DNS, стабильно доступен, без блокировок.
+        # Не проверяем содержимое — только что команда не падает.
+        run: |
+          deadip --target 1.1.1.1 --no-control --skip-external --json \
+            | python -c "import json,sys; d=json.load(sys.stdin); assert 'verdict' in d"
+
+  # =============================================================
+  # 4. Сборка sdist + wheel — проверяем, что пакет валидный
+  # =============================================================
+  build-package:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip build twine
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Check with twine
+        run: twine check dist/*
+
+      - name: Verify wheel installs cleanly
+        run: |
+          python -m venv /tmp/venv-test
+          /tmp/venv-test/bin/pip install --upgrade pip
+          /tmp/venv-test/bin/pip install dist/*.whl
+          /tmp/venv-test/bin/deadip --version
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  # =============================================================
+  # 5. Проверка сборки standalone-бинарника через PyInstaller.
+  #    Собираем в Ubuntu 20.04 (Docker) — то же окружение, что в релизе,
+  #    чтобы поймать проблемы совместимости до тега.
+  # =============================================================
+  build-binary-linux:
+    runs-on: ubuntu-22.04
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build container
+        run: docker build -f Dockerfile.build -t deadip-builder .
+
+      - name: Build binary inside container
+        run: |
+          mkdir -p release
+          docker run --rm \
+              --user "$(id -u):$(id -g)" \
+              -e HOME=/tmp \
+              -e PIP_NO_CACHE_DIR=1 \
+              -v "$PWD":/src \
+              -w /src \
+              deadip-builder \
+              bash -lc "pip install -e . && pyinstaller deadip.spec --clean --noconfirm"
+          mv dist/deadip release/deadip-linux-x86_64
+          chmod +x release/deadip-linux-x86_64
+
+      - name: Smoke-test binary
+        run: |
+          ./release/deadip-linux-x86_64 --version
+          ./release/deadip-linux-x86_64 --help
+
+      - name: Verify binary runs on old glibc
+        # Убеждаемся, что бинарник запускается на Ubuntu 20.04 (glibc 2.31)
+        run: |
+          docker run --rm -v "$PWD/release":/r ubuntu:20.04 \
+              /r/deadip-linux-x86_64 --version
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deadip-linux-x86_64
+          path: release/deadip-linux-x86_64
+          if-no-files-found: error
+
+  # =============================================================
+  # 6. Финальный gate — если упало что-то выше, весь CI красный.
+  #    Удобно для branch protection: достаточно повесить required на ci-ok.
+  # =============================================================
+  ci-ok:
+    if: always()
+    needs:
+      - lint
+      - test
+      - smoke
+      - build-package
+      - build-binary-linux
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Aggregate results
+        run: |
+          echo "lint:             ${{ needs.lint.result }}"
+          echo "test:             ${{ needs.test.result }}"
+          echo "smoke:            ${{ needs.smoke.result }}"
+          echo "build-package:    ${{ needs.build-package.result }}"
+          echo "build-binary:     ${{ needs.build-binary-linux.result }}"
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] \
+             || [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "::error::CI failed"
+            exit 1
+          fi

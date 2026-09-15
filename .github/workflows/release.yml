@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # позволяет запустить вручную из вкладки Actions
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write   # нужно для создания Release
+
+jobs:
+
+  # ==================================================
+  # Linux x86_64 — внутри ubuntu:20.04 через Docker
+  # ==================================================
+  linux-x86_64:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build binary in Ubuntu 20.04 container
+        run: |
+          docker build -f Dockerfile.build -t deadIp-builder .
+          docker run --rm \
+              -v "$PWD":/src -w /src \
+              deadIp-builder \
+              bash -lc "pip install -e . && pyinstaller deadIp.spec --clean --noconfirm"
+          mkdir -p release
+          mv dist/deadIp release/deadIp-linux-x86_64
+          chmod +x release/deadIp-linux-x86_64
+
+      - name: Smoke test
+        run: |
+          ./release/deadIp-linux-x86_64 --version
+          ./release/deadIp-linux-x86_64 --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deadIp-linux-x86_64
+          path: release/deadIp-linux-x86_64
+          if-no-files-found: error
+
+  # ==================================================
+  # Linux arm64 — нативный ARM-раннер GitHub
+  # ==================================================
+  linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-venv python3-pip upx-ucl
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+          pyinstaller deadIp.spec --clean --noconfirm
+          mkdir -p release
+          mv dist/deadIp release/deadIp-linux-arm64
+          chmod +x release/deadIp-linux-arm64
+
+      - name: Smoke test
+        run: ./release/deadIp-linux-arm64 --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deadIp-linux-arm64
+          path: release/deadIp-linux-arm64
+          if-no-files-found: error
+
+  # ==================================================
+  # macOS — matrix: x86_64 (macos-13) + arm64 (macos-14)
+  # ==================================================
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13     # Intel
+            arch: x86_64
+          - runner: macos-14     # Apple Silicon
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          brew install upx || true
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build
+        run: |
+          pyinstaller deadIp.spec --clean --noconfirm
+          mkdir -p release
+          mv dist/deadIp release/deadIp-darwin-${{ matrix.arch }}
+          chmod +x release/deadIp-darwin-${{ matrix.arch }}
+
+      - name: Ad-hoc codesign
+        run: |
+          codesign --force --deep --sign - release/deadIp-darwin-${{ matrix.arch }}
+
+      - name: Smoke test
+        run: ./release/deadIp-darwin-${{ matrix.arch }} --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deadIp-darwin-${{ matrix.arch }}
+          path: release/deadIp-darwin-${{ matrix.arch }}
+          if-no-files-found: error
+
+  # ==================================================
+  # Финальный шаг: собрать релиз и приложить install.sh
+  # ==================================================
+  release:
+    needs:
+      - linux-x86_64
+      - linux-arm64
+      - macos
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Compute checksums
+        working-directory: release
+        run: |
+          sha256sum deadIp-* > SHA256SUMS
+          ls -lh
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            release/deadIp-linux-x86_64
+            release/deadIp-linux-arm64
+            release/deadIp-darwin-x86_64
+            release/deadIp-darwin-arm64
+            release/SHA256SUMS
+            install.sh
