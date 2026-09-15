@@ -20,7 +20,7 @@ jobs:
   # Linux x86_64 — внутри ubuntu:20.04 через Docker
   # ==================================================
   linux-x86_64:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +85,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-13     # Intel
+          - runner: macos-15-intel     # Intel
             arch: x86_64
           - runner: macos-14     # Apple Silicon
             arch: arm64
