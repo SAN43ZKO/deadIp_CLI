@@ -10,6 +10,7 @@
   полностью жив, но недоступен именно с этого маршрута. Поэтому признак
   должен идти в паре с ICMP/TCP-провалами и успешным контролем.
 """
+
 from __future__ import annotations
 
 import os
@@ -23,17 +24,17 @@ RU_AS_FALLBACK = {
     "AS12389",  # Ростелеком
     "AS15468",  # Google (Rostelecom peer)
     "AS20485",  # ТрансТелеКом
-    "AS8331",   # Радуга-Интернет
-    "AS3216",   # МТС
-    "AS8402",   # Вымпелком
+    "AS8331",  # Радуга-Интернет
+    "AS3216",  # МТС
+    "AS8402",  # Вымпелком
     "AS12332",  # Мегафон
     "AS31133",  # Мегафон
-    "AS8359",   # МТС
+    "AS8359",  # МТС
     "AS31214",  # ТИС-Диалог
 }
 
-_AS_RE       = re.compile(r"\bAS(\d{1,6})\b")
-_IP_RE       = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b")
+_AS_RE = re.compile(r"\bAS(\d{1,6})\b")
+_IP_RE = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b")
 _HOP_LINE_RE = re.compile(r"^[ \t]*\d+[ \t.|:]")
 
 _CYMRU_HOST = "whois.cymru.com"
@@ -59,39 +60,130 @@ def _candidates(target: str, port: int, max_hops: int) -> list[tuple[str, list[s
     """Список (имя, argv) в порядке предпочтения. TCP — только если root."""
     cands: list[tuple[str, list[str]]] = []
     mtr = shutil.which("mtr")
-    tr  = shutil.which("traceroute")
-    tp  = shutil.which("tracepath")
+    tr = shutil.which("traceroute")
+    tp = shutil.which("tracepath")
     root = _is_root()
 
     if mtr:
         if root:
-            cands.append(("mtr-tcp", [
-                mtr, "-r", "-b", "-z", "-c", "3",
-                "-T", "-P", str(port), "-m", str(max_hops), target,
-            ]))
-        cands.append(("mtr-udp", [
-            mtr, "-r", "-b", "-z", "-c", "3",
-            "-u", "-P", str(port), "-m", str(max_hops), target,
-        ]))
-        cands.append(("mtr-icmp", [
-            mtr, "-r", "-b", "-z", "-c", "3",
-            "-m", str(max_hops), target,
-        ]))
-        cands.append(("mtr-plain", [
-            mtr, "-r", "-b", "-c", "3", "-m", str(max_hops), target,
-        ]))
+            cands.append(
+                (
+                    "mtr-tcp",
+                    [
+                        mtr,
+                        "-r",
+                        "-b",
+                        "-z",
+                        "-c",
+                        "3",
+                        "-T",
+                        "-P",
+                        str(port),
+                        "-m",
+                        str(max_hops),
+                        target,
+                    ],
+                )
+            )
+        cands.append(
+            (
+                "mtr-udp",
+                [
+                    mtr,
+                    "-r",
+                    "-b",
+                    "-z",
+                    "-c",
+                    "3",
+                    "-u",
+                    "-P",
+                    str(port),
+                    "-m",
+                    str(max_hops),
+                    target,
+                ],
+            )
+        )
+        cands.append(
+            (
+                "mtr-icmp",
+                [
+                    mtr,
+                    "-r",
+                    "-b",
+                    "-z",
+                    "-c",
+                    "3",
+                    "-m",
+                    str(max_hops),
+                    target,
+                ],
+            )
+        )
+        cands.append(
+            (
+                "mtr-plain",
+                [
+                    mtr,
+                    "-r",
+                    "-b",
+                    "-c",
+                    "3",
+                    "-m",
+                    str(max_hops),
+                    target,
+                ],
+            )
+        )
 
     if tr:
         if root:
-            cands.append(("traceroute-tcp", [
-                tr, "-T", "-p", str(port), "-m", str(max_hops), "-w", "2", target,
-            ]))
-        cands.append(("traceroute-udp", [
-            tr, "-U", "-p", str(port), "-m", str(max_hops), "-w", "2", target,
-        ]))
-        cands.append(("traceroute-icmp", [
-            tr, "-I", "-m", str(max_hops), "-w", "2", target,
-        ]))
+            cands.append(
+                (
+                    "traceroute-tcp",
+                    [
+                        tr,
+                        "-T",
+                        "-p",
+                        str(port),
+                        "-m",
+                        str(max_hops),
+                        "-w",
+                        "2",
+                        target,
+                    ],
+                )
+            )
+        cands.append(
+            (
+                "traceroute-udp",
+                [
+                    tr,
+                    "-U",
+                    "-p",
+                    str(port),
+                    "-m",
+                    str(max_hops),
+                    "-w",
+                    "2",
+                    target,
+                ],
+            )
+        )
+        cands.append(
+            (
+                "traceroute-icmp",
+                [
+                    tr,
+                    "-I",
+                    "-m",
+                    str(max_hops),
+                    "-w",
+                    "2",
+                    target,
+                ],
+            )
+        )
 
     if tp:
         cands.append(("tracepath", [tp, "-m", str(max_hops), target]))
@@ -118,7 +210,7 @@ def _cymru_lookup(ips: list[str], timeout: float = 5.0) -> dict[str, dict]:
             while True:
                 try:
                     chunk = s.recv(4096)
-                except socket.timeout:
+                except TimeoutError:
                     break
                 if not chunk:
                     break
@@ -135,7 +227,7 @@ def _cymru_lookup(ips: list[str], timeout: float = 5.0) -> dict[str, dict]:
         if ip.count(".") != 3:
             continue
         asn = f"AS{parts[0]}" if parts[0].isdigit() else None
-        cc  = parts[3] or None
+        cc = parts[3] or None
         out[ip] = {"as": asn, "cc": cc}
     return out
 
@@ -181,20 +273,29 @@ def _parse_hops(raw: str) -> tuple[int, int, list[str]]:
     return total, answered, uniq
 
 
-def traceroute_tcp(target: str, port: int = 443, max_hops: int = 30,
-                   timeout: float = 6.0) -> dict:
+def traceroute_tcp(target: str, port: int = 443, max_hops: int = 30, timeout: float = 6.0) -> dict:
     res: dict = {
-        "available": False, "tool": None, "raw": "", "stderr": "",
-        "reached_target": False, "last_hop": None,
-        "hops": 0, "answered_hops": 0, "unanswered_hops": 0,
-        "all_as": [], "russian_as": [], "cymru": None,
+        "available": False,
+        "tool": None,
+        "raw": "",
+        "stderr": "",
+        "reached_target": False,
+        "last_hop": None,
+        "hops": 0,
+        "answered_hops": 0,
+        "unanswered_hops": 0,
+        "all_as": [],
+        "russian_as": [],
+        "cymru": None,
         # --- признаки блокировки ---
-        "early_silence": False,          # ранняя тишина в RU-AS
-        "silence_after_first_as": False, # чистый паттерн РКН: молчание сразу за ISP
-        "blocked_in_ru": False,          # = early_silence (для совместимости)
+        "early_silence": False,  # ранняя тишина в RU-AS
+        "silence_after_first_as": False,  # чистый паттерн РКН: молчание сразу за ISP
+        "blocked_in_ru": False,  # = early_silence (для совместимости)
         # --- прочее ---
-        "truncated_early": False, "attempts": [],
-        "needs_root": False, "hint": None,
+        "truncated_early": False,
+        "attempts": [],
+        "needs_root": False,
+        "hint": None,
     }
 
     cands = _candidates(target, port, max_hops)
@@ -205,34 +306,39 @@ def traceroute_tcp(target: str, port: int = 443, max_hops: int = 30,
 
     for name, cmd in cands:
         stdout, stderr, rc = _run(cmd, timeout=timeout * max_hops)
-        res["attempts"].append({
-            "name": name, "rc": rc,
-            "stdout_len": len(stdout), "stderr": stderr.strip()[:300],
-        })
+        res["attempts"].append(
+            {
+                "name": name,
+                "rc": rc,
+                "stdout_len": len(stdout),
+                "stderr": stderr.strip()[:300],
+            }
+        )
 
         if not stdout.strip():
             low = stderr.lower()
-            if ("permission" in low or "raw socket" in low
-                    or "operation not permitted" in low):
+            if "permission" in low or "raw socket" in low or "operation not permitted" in low:
                 res["needs_root"] = True
             continue
 
         total, answered, ips = _parse_hops(stdout)
         raw_as_set = {f"AS{m}" for m in _AS_RE.findall(stdout)}
 
-        res.update({
-            "available": True,
-            "tool": name,
-            "raw": stdout,
-            "stderr": stderr,
-            "last_hop": ips[-1] if ips else None,
-            "hops": total,
-            "answered_hops": answered,
-            "unanswered_hops": max(total - answered, 0),
-            "reached_target": target in ips,
-            "all_as": sorted(raw_as_set, key=lambda s: int(s[2:])),
-            "russian_as": sorted(raw_as_set & RU_AS_FALLBACK),
-        })
+        res.update(
+            {
+                "available": True,
+                "tool": name,
+                "raw": stdout,
+                "stderr": stderr,
+                "last_hop": ips[-1] if ips else None,
+                "hops": total,
+                "answered_hops": answered,
+                "unanswered_hops": max(total - answered, 0),
+                "reached_target": target in ips,
+                "all_as": sorted(raw_as_set, key=lambda s: int(s[2:])),
+                "russian_as": sorted(raw_as_set & RU_AS_FALLBACK),
+            }
+        )
 
         # --- Cymru: добираем AS и страну по IP-хопам ---
         # Нужен и для all_as, и для russian_as, если mtr без -z.
@@ -244,8 +350,7 @@ def traceroute_tcp(target: str, port: int = 443, max_hops: int = 30,
                 merged = raw_as_set | as_from_cymru
                 res["all_as"] = sorted(merged, key=lambda s: int(s[2:]))
                 ru_from_cymru = sorted(
-                    v["as"] for v in cymru.values()
-                    if v.get("as") and v.get("cc") == "RU"
+                    v["as"] for v in cymru.values() if v.get("as") and v.get("cc") == "RU"
                 )
                 res["russian_as"] = ru_from_cymru or sorted(merged & RU_AS_FALLBACK)
 
@@ -259,20 +364,19 @@ def traceroute_tcp(target: str, port: int = 443, max_hops: int = 30,
         #    реально шли до max_hops, а не оборвались на первом же).
         #    Так выглядит блокировка с домашнего VPS: hop 1 = твой роутер,
         #    hop 2 = ISP, дальше — тишина.
-        if (not res["reached_target"]
-                and total >= 5
-                and answered <= 2
-                and res["russian_as"]):
+        if not res["reached_target"] and total >= 5 and answered <= 2 and res["russian_as"]:
             res["silence_after_first_as"] = True
 
         # 2. Ранняя тишина (чуть слабее): ответило ≤3 хопов, большинство
         #    молчит, и есть RU-AS в трассе. Ловит случай, когда до обрыва
         #    успело ответить 3 хопа (например, ISP + его аплинк).
-        if (not res["reached_target"]
-                and total >= 5
-                and 1 <= answered <= 3
-                and res["russian_as"]
-                and unanswered >= total / 2):
+        if (
+            not res["reached_target"]
+            and total >= 5
+            and 1 <= answered <= 3
+            and res["russian_as"]
+            and unanswered >= total / 2
+        ):
             res["early_silence"] = True
 
         # Для совместимости со старым кодом:

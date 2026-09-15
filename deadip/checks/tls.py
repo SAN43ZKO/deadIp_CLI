@@ -1,4 +1,5 @@
 """Слой 3: TLS handshake — детектор DPI/SNI-фильтрации."""
+
 from __future__ import annotations
 
 import socket
@@ -6,14 +7,15 @@ import ssl
 import time
 
 
-def tls_check(host: str, port: int = 443, sni: str | None = None,
-              timeout: float = 5.0, retries: int = 2) -> dict:
+def tls_check(
+    host: str, port: int = 443, sni: str | None = None, timeout: float = 5.0, retries: int = 2
+) -> dict:
     res = {
         "port": port,
         "sni": sni,
         "tls": False,
         "error": None,
-        "error_kind": None,   # "refused" | "reset" | "timeout" | "tls" | "cert" | "eof" | None
+        "error_kind": None,  # "refused" | "reset" | "timeout" | "tls" | "cert" | "eof" | None
         "tls_version": None,
         "cert_cn": None,
         "attempts": 0,
@@ -45,18 +47,18 @@ def tls_check(host: str, port: int = 443, sni: str | None = None,
         except ConnectionRefusedError as e:
             last_err = e
             res["error_kind"] = "refused"
-            res["error"] = f"[Errno 111] Connection refused"
+            res["error"] = "[Errno 111] Connection refused"
         except ConnectionResetError as e:
             last_err = e
-            res["error_kind"] = "reset"          # ← классический DPI
+            res["error_kind"] = "reset"  # ← классический DPI
             res["error"] = "connection reset"
-        except socket.timeout as e:
+        except TimeoutError as e:
             last_err = e
             res["error_kind"] = "timeout"
             res["error"] = "timeout"
         except ssl.SSLEOFError as e:
             last_err = e
-            res["error_kind"] = "eof"            # ← ТСПУ часто рвёт FIN'ом
+            res["error_kind"] = "eof"  # ← ТСПУ часто рвёт FIN'ом
             res["error"] = "unexpected EOF during handshake"
         except ssl.SSLCertVerificationError as e:
             # сертификат не про SNI — это не блокировка, а самоподписанный/чужой

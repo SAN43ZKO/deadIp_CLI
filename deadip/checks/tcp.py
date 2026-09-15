@@ -5,6 +5,7 @@
 ClientHello до таймаута, и мы получаем ложный сигнал «connect, но данные
 не пошли» → ложный вердикт «Вероятна блокировка».
 """
+
 from __future__ import annotations
 
 import socket
@@ -22,7 +23,7 @@ def tcp_check(host: str, port: int, timeout: float = 5.0) -> dict:
     res = {
         "port": port,
         "connect": False,
-        "data_exchange": None,   # None = «не применимо», а не «провал»
+        "data_exchange": None,  # None = «не применимо», а не «провал»
         "rtt_ms": None,
         "error": None,
         "banner": "",
@@ -57,13 +58,13 @@ def tcp_check(host: str, port: int, timeout: float = 5.0) -> dict:
             res["data_exchange"] = True
             if data:
                 res["banner"] = data[:120].hex()
-        except (socket.timeout, ConnectionResetError, OSError) as e:
+        except (TimeoutError, ConnectionResetError, OSError) as e:
             res["data_exchange"] = False
             res["error"] = type(e).__name__
 
     except ConnectionResetError:
         res["error"] = "reset"
-    except socket.timeout:
+    except TimeoutError:
         res["error"] = "timeout"
     except ConnectionRefusedError:
         res["error"] = "refused"

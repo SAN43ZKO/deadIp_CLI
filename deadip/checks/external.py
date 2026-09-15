@@ -1,6 +1,9 @@
 """Слой 6: сравнение через Globalping (РФ vs Европа)."""
+
 from __future__ import annotations
+
 import time
+
 import httpx
 
 API = "https://api.globalping.io/v1/measurements"

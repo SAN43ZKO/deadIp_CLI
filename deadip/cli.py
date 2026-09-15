@@ -1,7 +1,8 @@
 """CLI-точка входа rkn-diag."""
+
 from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
 
 import httpx
 import typer
@@ -30,7 +31,7 @@ _VERDICT_STYLE = {
 }
 
 
-def _get_my_ip(timeout: float = 5.0) -> Optional[str]:
+def _get_my_ip(timeout: float = 5.0) -> str | None:
     try:
         r = httpx.get("https://api.ipify.org", timeout=timeout)
         r.raise_for_status()
@@ -39,19 +40,39 @@ def _get_my_ip(timeout: float = 5.0) -> Optional[str]:
         return None
 
 
-def _mask(text: str, my_ip: Optional[str]) -> str:
+def _mask(text: str, my_ip: str | None) -> str:
     if my_ip:
         text = text.replace(my_ip, "xxx.xxx.xxx.xxx")
     return text
 
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"[bold cyan]deadip[/bold cyan] [dim]{__version__}[/dim]")
+        raise typer.Exit()
+
+
+@app.callback()
+def _root(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        help="Показать версию и выйти.",
+        callback=_version_callback,
+        is_eager=True,
+    ),
+) -> None:
+    """Глобальные опции deadip."""
 
 @app.command()
 def main(
     target: str = typer.Option(..., "--target", "-t", help="IP или домен"),
     ports: str = typer.Option("22,80,443", "--ports", help="TCP-порты через запятую"),
     timeout: float = typer.Option(5.0, "--timeout", help="Таймаут на этап, сек"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Путь для Markdown-отчёта"),
-    support_template: bool = typer.Option(False, "--support-template", help="Сгенерировать шаблон обращения"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Путь для Markdown-отчёта"),
+    support_template: bool = typer.Option(
+        False, "--support-template", help="Сгенерировать шаблон обращения"
+    ),
     json_out: bool = typer.Option(False, "--json", help="Вывод в JSON (в stdout)"),
     no_control: bool = typer.Option(False, "--no-control", help="Пропустить контрольную группу"),
     skip_external: bool = typer.Option(False, "--skip-external", help="Пропустить Globalping"),
@@ -124,15 +145,22 @@ def main(
     else:
         _print_table(resolved, checks)
         style = _VERDICT_STYLE.get(verdict["verdict"], "bold")
-        console.print(Panel.fit(
-            f"[{style}]{verdict['verdict']}[/{style}]\n{verdict['reason']}",
-            title="Вердикт", border_style=style.split()[-1],
-        ))
+        console.print(
+            Panel.fit(
+                f"[{style}]{verdict['verdict']}[/{style}]\n{verdict['reason']}",
+                title="Вердикт",
+                border_style=style.split()[-1],
+            )
+        )
 
     # ------- Отчёт -------
     my_ip = _get_my_ip()
-    md = _mask(build_markdown(target, resolved, checks, verdict,
-                              user_ip_masked="xxx.xxx.xxx.xxx" if my_ip else None), my_ip)
+    md = _mask(
+        build_markdown(
+            target, resolved, checks, verdict, user_ip_masked="xxx.xxx.xxx.xxx" if my_ip else None
+        ),
+        my_ip,
+    )
 
     if output:
         output.write_text(md, encoding="utf-8")
@@ -141,7 +169,9 @@ def main(
     # ------- Шаблон поддержки -------
     if support_template:
         tpl = render_support_template(
-            ip, verdict, checks,
+            ip,
+            verdict,
+            checks,
             resolved=resolved,
             target=target,
         )
@@ -158,10 +188,14 @@ def main(
 
     # ------- Сырой лог + сравнение -------
     prev = previous_for(target)
-    save_raw({
-        "target": target, "resolved": resolved,
-        "checks": checks, "verdict": verdict,
-    })
+    save_raw(
+        {
+            "target": target,
+            "resolved": resolved,
+            "checks": checks,
+            "verdict": verdict,
+        }
+    )
     if prev and prev.get("verdict", {}).get("verdict") != verdict["verdict"]:
         console.print(
             f"[yellow]Δ с прошлым запуском:[/yellow] "
@@ -179,21 +213,24 @@ def _print_table(resolved: dict, checks: dict) -> None:
     icmp = checks.get("icmp") or {}
     loss = icmp.get("loss_percent")
     ok = loss is not None and loss < 80
-    table.add_row("1", "ICMP ping",
-                  "[green]✓[/green]" if ok else "[red]✗[/red]",
-                  f"{loss}% loss" if loss is not None else (icmp.get("error") or "—"))
+    table.add_row(
+        "1",
+        "ICMP ping",
+        "[green]✓[/green]" if ok else "[red]✗[/red]",
+        f"{loss}% loss" if loss is not None else (icmp.get("error") or "—"),
+    )
 
     for t in checks.get("tcp") or []:
         connect = t.get("connect")
-        data = t.get("data_exchange")   # True / False / None
+        data = t.get("data_exchange")  # True / False / None
 
         if connect and (data is True or data is None):
             # порт открыт, для TLS-портов None = «ОК, проверит tls.py»
             ok = True
         elif connect and data is False:
-            ok = False                  # connect есть, но DPI оборвал данные
+            ok = False  # connect есть, но DPI оборвал данные
         else:
-            ok = False                  # connect нет вообще
+            ok = False  # connect нет вообще
 
         if not connect:
             detail = t.get("error") or "—"
@@ -204,9 +241,7 @@ def _print_table(resolved: dict, checks: dict) -> None:
         else:
             detail = f"RTT {t.get('rtt_ms')} ms"
 
-        table.add_row("2", f"TCP {t['port']}",
-                    "[green]✓[/green]" if ok else "[red]✗[/red]",
-                    detail)
+        table.add_row("2", f"TCP {t['port']}", "[green]✓[/green]" if ok else "[red]✗[/red]", detail)
 
     tls = checks.get("tls") or {}
     tls_ok = bool(tls.get("tls"))
@@ -216,9 +251,9 @@ def _print_table(resolved: dict, checks: dict) -> None:
             det += f" (после {tls['attempts']} попыток)"
     else:
         det = tls.get("tls_version") or "—"
-    table.add_row("3", f"TLS {tls.get('port', 443)}",
-                "[green]✓[/green]" if tls_ok else "[red]✗[/red]",
-                det)
+    table.add_row(
+        "3", f"TLS {tls.get('port', 443)}", "[green]✓[/green]" if tls_ok else "[red]✗[/red]", det
+    )
 
     tr = checks.get("traceroute") or {}
     if not tr.get("available"):
@@ -227,7 +262,7 @@ def _print_table(resolved: dict, checks: dict) -> None:
         if tr.get("reached_target"):
             icon = "[green]✓[/green]"
         elif tr.get("silence_after_first_as") or tr.get("early_silence"):
-            icon = "[red]✗[/red]"       # не жёлтый: это уже сигнал блокировки
+            icon = "[red]✗[/red]"  # не жёлтый: это уже сигнал блокировки
         else:
             icon = "[yellow]~[/yellow]"
 
@@ -236,21 +271,16 @@ def _print_table(resolved: dict, checks: dict) -> None:
             f"hops {tr.get('answered_hops', 0)}/{tr.get('hops', 0)}",
         ]
         all_as = tr.get("all_as") or []
-        ru_as  = set(tr.get("russian_as") or [])
+        ru_as = set(tr.get("russian_as") or [])
         if all_as:
-            parts.append("AS: " + ", ".join(
-                f"{a}🇷🇺" if a in ru_as else a for a in all_as))
+            parts.append("AS: " + ", ".join(f"{a}🇷🇺" if a in ru_as else a for a in all_as))
         else:
             parts.append("AS: —")
 
         if tr.get("silence_after_first_as"):
-            parts.append(
-                "[red](трафик умирает сразу за ISP — признак блокировки в РФ)[/red]"
-            )
+            parts.append("[red](трафик умирает сразу за ISP — признак блокировки в РФ)[/red]")
         elif tr.get("early_silence"):
-            parts.append(
-                "[red](ранняя тишина в RU-AS — возможна блокировка)[/red]"
-            )
+            parts.append("[red](ранняя тишина в RU-AS — возможна блокировка)[/red]")
         elif tr.get("truncated_early"):
             parts.append("[yellow](много молчащих хопов)[/yellow]")
 
@@ -260,15 +290,23 @@ def _print_table(resolved: dict, checks: dict) -> None:
 
     ctrl = checks.get("control") or {}
     if ctrl:
-        table.add_row("5", "Контроль (ya.ru)",
-                      "[green]✓[/green]" if ctrl.get("reachable") else "[red]✗[/red]",
-                      ctrl.get("detail") or "—")
+        table.add_row(
+            "5",
+            "Контроль (ya.ru)",
+            "[green]✓[/green]" if ctrl.get("reachable") else "[red]✗[/red]",
+            ctrl.get("detail") or "—",
+        )
 
     ext = checks.get("external") or {}
     if ext.get("available"):
-        table.add_row("6", "Globalping",
-                      "[green]✓[/green]" if (ext.get("eu_ok") and not ext.get("ru_ok")) else "[yellow]?[/yellow]",
-                      f"RU: {ext.get('ru_ok')}, EU: {ext.get('eu_ok')}")
+        table.add_row(
+            "6",
+            "Globalping",
+            "[green]✓[/green]"
+            if (ext.get("eu_ok") and not ext.get("ru_ok"))
+            else "[yellow]?[/yellow]",
+            f"RU: {ext.get('ru_ok')}, EU: {ext.get('eu_ok')}",
+        )
 
     console.print(table)
 

@@ -1,5 +1,7 @@
 """Примитивная система плагинов: entry points 'rkn_diag.plugins'."""
+
 from __future__ import annotations
+
 from importlib.metadata import entry_points
 
 

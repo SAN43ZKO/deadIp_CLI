@@ -1,5 +1,7 @@
 """Слой 1: ICMP ping."""
+
 from __future__ import annotations
+
 import platform
 import re
 import shutil
@@ -24,7 +26,9 @@ def ping(host: str, count: int = 10, timeout: float = 2.0) -> dict:
 
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True,
+            cmd,
+            capture_output=True,
+            text=True,
             timeout=count * timeout + 5,
         )
     except subprocess.TimeoutExpired:

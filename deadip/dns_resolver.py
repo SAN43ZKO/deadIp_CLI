@@ -1,6 +1,9 @@
 """Резолвинг имён через DoH, чтобы обойти подмену DNS провайдером."""
+
 from __future__ import annotations
+
 import ipaddress
+
 import httpx
 
 DOH_ENDPOINTS = (
@@ -45,6 +48,7 @@ def resolve_target(target: str, timeout: float = 5.0) -> dict:
     if not ips:
         # фолбэк на системный резолвер
         import socket
+
         try:
             ips = [socket.gethostbyname(target)]
         except OSError:

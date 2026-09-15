@@ -12,9 +12,10 @@
   Внутри f-строк используются ~~~ (тильды), а не ``` (обратные кавычки),
   чтобы не ломать рендер при копировании текста из Markdown-чатов.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 MSK = timezone(timedelta(hours=3))
 
@@ -23,18 +24,19 @@ _TRACE_MAX_LINES = 40
 
 # Реконструкция команд по имени tool (для раздела «как воспроизвести»).
 _TOOL_CMDS = {
-    "mtr-tcp":         "sudo mtr -r -b -z -c 3 -T -P {port} -m 30 {target}",
-    "mtr-udp":         "mtr -r -b -z -c 3 -u -P {port} -m 30 {target}",
-    "mtr-icmp":        "mtr -r -b -z -c 3 -m 30 {target}",
-    "mtr-plain":       "mtr -r -b -c 3 -m 30 {target}",
-    "traceroute-tcp":  "sudo traceroute -T -p {port} -m 30 -w 2 {target}",
-    "traceroute-udp":  "traceroute -U -p {port} -m 30 -w 2 {target}",
+    "mtr-tcp": "sudo mtr -r -b -z -c 3 -T -P {port} -m 30 {target}",
+    "mtr-udp": "mtr -r -b -z -c 3 -u -P {port} -m 30 {target}",
+    "mtr-icmp": "mtr -r -b -z -c 3 -m 30 {target}",
+    "mtr-plain": "mtr -r -b -c 3 -m 30 {target}",
+    "traceroute-tcp": "sudo traceroute -T -p {port} -m 30 -w 2 {target}",
+    "traceroute-udp": "traceroute -U -p {port} -m 30 -w 2 {target}",
     "traceroute-icmp": "traceroute -I -m 30 -w 2 {target}",
-    "tracepath":       "tracepath -m 30 {target}",
+    "tracepath": "tracepath -m 30 {target}",
 }
 
 
 # ---------- helpers ----------
+
 
 def _fmt_icmp(icmp: dict) -> str:
     loss = icmp.get("loss_percent")
@@ -52,8 +54,7 @@ def _fmt_tcp_lines(tcp_list: list[dict]) -> list[str]:
             rtt_str = f", RTT {rtt} ms" if rtt is not None else ""
             if t.get("data_exchange") is None:
                 out.append(
-                    f"  - TCP {port}: соединение установлено{rtt_str} "
-                    f"(TLS проверяется отдельно)"
+                    f"  - TCP {port}: соединение установлено{rtt_str} (TLS проверяется отдельно)"
                 )
             else:
                 out.append(f"  - TCP {port}: соединение установлено{rtt_str}")
@@ -74,7 +75,7 @@ def _fmt_tls(tls: dict) -> str:
 
 def _fmt_as_list(trace: dict) -> str:
     all_as = trace.get("all_as") or []
-    ru_as  = set(trace.get("russian_as") or [])
+    ru_as = set(trace.get("russian_as") or [])
     if not all_as:
         return "—"
     return ", ".join(f"{a} (RU)" if a in ru_as else a for a in all_as)
@@ -119,22 +120,28 @@ def _trace_summary(trace: dict) -> str:
     if not trace.get("available"):
         return "трассировка не выполнена"
     answered = trace.get("answered_hops", 0)
-    total    = trace.get("hops", 0)
-    last     = trace.get("last_hop") or "—"
-    as_list  = _fmt_as_list(trace)
+    total = trace.get("hops", 0)
+    last = trace.get("last_hop") or "—"
+    as_list = _fmt_as_list(trace)
 
     if trace.get("reached_target"):
         return f"цель достигнута за {total} хопов; AS: {as_list}"
 
     if trace.get("silence_after_first_as"):
-        return (f"трафик умирает сразу за ISP: "
-                f"ответили только {answered} из {total} хопов, "
-                f"последний видимый — {last}; AS: {as_list}")
+        return (
+            f"трафик умирает сразу за ISP: "
+            f"ответили только {answered} из {total} хопов, "
+            f"последний видимый — {last}; AS: {as_list}"
+        )
     if trace.get("early_silence"):
-        return (f"ранняя тишина: ответили {answered} из {total} хопов, "
-                f"последний — {last}; AS: {as_list}")
-    return (f"цель не достигнута; ответили {answered} из {total} хопов, "
-            f"последний — {last}; AS: {as_list}")
+        return (
+            f"ранняя тишина: ответили {answered} из {total} хопов, "
+            f"последний — {last}; AS: {as_list}"
+        )
+    return (
+        f"цель не достигнута; ответили {answered} из {total} хопов, "
+        f"последний — {last}; AS: {as_list}"
+    )
 
 
 def _fmt_ext(ext: dict) -> str | None:
@@ -147,6 +154,7 @@ def _fmt_ext(ext: dict) -> str | None:
 
 # ---------- основной рендер ----------
 
+
 def render_support_template(
     ip: str,
     verdict: dict,
@@ -158,25 +166,27 @@ def render_support_template(
     target = target or ip
     domain = (resolved or {}).get("domain")
 
-    icmp    = checks.get("icmp") or {}
-    tcp     = checks.get("tcp") or []
-    tls     = checks.get("tls") or {}
-    trace   = checks.get("traceroute") or {}
+    icmp = checks.get("icmp") or {}
+    tcp = checks.get("tcp") or []
+    tls = checks.get("tls") or {}
+    trace = checks.get("traceroute") or {}
     control = checks.get("control") or {}
-    ext     = checks.get("external") or {}
+    ext = checks.get("external") or {}
 
-    tcp_lines     = "\n".join(_fmt_tcp_lines(tcp))
-    trace_block   = _trace_block(trace)
+    tcp_lines = "\n".join(_fmt_tcp_lines(tcp))
+    trace_block = _trace_block(trace)
     trace_summary = _trace_summary(trace)
-    reproduce     = _reproduce_cmd(trace, target, port=tls.get("port", 443)) \
-                    or f"mtr -r -z -b -c 3 -T -P {tls.get('port', 443)} -m 30 {target}"
-    ext_line      = _fmt_ext(ext)
+    reproduce = (
+        _reproduce_cmd(trace, target, port=tls.get("port", 443))
+        or f"mtr -r -z -b -c 3 -T -P {tls.get('port', 443)} -m 30 {target}"
+    )
+    ext_line = _fmt_ext(ext)
 
     ctrl_ru = "доступен" if control.get("reachable") else "недоступен"
     ctrl_en = "reachable" if control.get("reachable") else "unreachable"
 
     verdict_text = verdict.get("verdict", "—")
-    reason_text  = verdict.get("reason", "")
+    reason_text = verdict.get("reason", "")
 
     target_label = ip + (f" ({domain})" if domain and domain != ip else "")
 
@@ -242,12 +252,12 @@ ICMP/TCP до цели не проходят. При этом контрольн
     # ============================================================
     # EN-версия
     # ============================================================
-    tcp_lines_en = (tcp_lines
-                    .replace("соединение установлено", "connected")
-                    .replace("нет ответа", "no response")
-                    .replace("нет данных", "no data")
-                    .replace("(TLS проверяется отдельно)",
-                             "(TLS checked separately)"))
+    tcp_lines_en = (
+        tcp_lines.replace("соединение установлено", "connected")
+        .replace("нет ответа", "no response")
+        .replace("нет данных", "no data")
+        .replace("(TLS проверяется отдельно)", "(TLS checked separately)")
+    )
     icmp_en = _fmt_icmp(icmp).replace("потерь", "% loss").replace("нет данных", "no data")
 
     en = f"""**Subject:** IP replacement request — blocked from Russia (VPS {ip})
